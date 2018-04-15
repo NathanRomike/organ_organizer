@@ -10,8 +10,16 @@ class MockProcessor
     `curl -X #{http_method} #{uri}#{path}#{params} #{headers} #{silence}`
   end
 
+  def self.save_to_file(json)
+    out_file = File.new('processed_output.json', 'w')
+    out_file.puts(json)
+    out_file.close
+  end
+
   path = 'orgs'
-  params = '?page=2'
+  params = '?page=1'
   response = create_api_request(params, path)
-  puts JSON.parse(response)
+
+  save_to_file(response)
+
 end
