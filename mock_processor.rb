@@ -14,6 +14,8 @@ class MockProcessor
   ACCOUNTS_ENDPOINT = 'accounts'
   USERS_ENDPOINT = 'users'
 
+  @output_file = File.new('processed_output.json', 'w')
+
   def self.make_api_request(path, params = '')
     response = `curl -X #{GET_METHOD} #{API_URL}#{path}#{params} #{API_KEY_HEADER} #{SILENT_OUTPUT} #{WRITE_STATUS_CODE}`
     response_status_code = response[-3..-1] # status code at last 3 characters of response
@@ -29,9 +31,7 @@ class MockProcessor
   end
 
   def self.save_to_file(json_string)
-    output_file = File.new('processed_output.json', 'w')
-    output_file.puts("#{json_string}")
-    output_file.close
+    @output_file.puts("#{json_string}")
   end
 
   def self.request_all_ids(endpoint)
@@ -61,32 +61,34 @@ class MockProcessor
   end
 
   def self.sort_organs(organs_array)
-    formatted_array = []
-
     # sole organ parents (without children) are already flat
-    sole_parent_organs = organs_array.select { |organ| organ['type'] == 'sole' }
-    sole_parent_organs.sort_by! { |organ| organ['id'] }
+    formatted_array = organs_array.select { |organ| organ['type'] == 'sole' }
+    formatted_array.sort_by! { |organ| organ['id'] }
 
-    sole_parent_organs.each do |organ_hash|
-      # organ_hash.delete('parent_id')
-      # organ_hash.delete('type')
-      formatted_array << organ_hash
-    end
-
-    # select organs without a parent and have children organs
+    # select organs without a parent (these have children organs)
     top_parent_organs = organs_array.select { |organ| organ['parent_id'].nil? &&  organ['type'] == 'parent' }
     top_parent_organs.sort_by! { |organ| organ['id'] }
 
-    children_parents = organs_array.select { |organ| organ['parent_id'] }
-    puts formatted_array
-    save_to_file(formatted_array)
+    # select organs with a parent organ (these are children organs)
+    children_parents = organs_array.select { |organ| !organ['parent_id'].nil? && organ['type'] == 'parent' }
+    children_parents.sort_by! { |organ| organ['parent_id'] }
+
+    # loop through the children, add the parent as the key, and children as array
+    children_parents.each_with_index do |child_org, index|
+      parent_to_child = top_parent_organs.select { |organ| organ['id'] == child_org['parent_id']}
+      formatted_array << Array.new([parent_to_child, child_org])
+    end
+    return JSON[formatted_array]
   end
 
   organs_id_array = request_all_ids(ORGANS_ENDPOINT)
   organs_array = request_all_by_id(organs_id_array, ORGANS_ENDPOINT)
-  sort_organs(organs_array)
+
+  # TODO: Add children node to parent organs
+  save_to_file(sort_organs(organs_array))
 
   accounts_id_array = request_all_ids(ACCOUNTS_ENDPOINT)
   accounts_array = request_all_by_id(accounts_id_array, ACCOUNTS_ENDPOINT)
-  puts accounts_array
+  # TODO: Add each organ's account to an 'account' node
+  @output_file.close
 end
