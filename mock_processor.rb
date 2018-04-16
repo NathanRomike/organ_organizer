@@ -14,8 +14,6 @@ class MockProcessor
   ACCOUNTS_ENDPOINT = 'accounts'
   USERS_ENDPOINT = 'users'
 
-  @output_file = File.new('processed_output.json', 'w')
-
   def self.make_api_request(path, params = '')
     response = `curl -X #{GET_METHOD} #{API_URL}#{path}#{params} #{API_KEY_HEADER} #{SILENT_OUTPUT} #{WRITE_STATUS_CODE}`
     response_status_code = response[-3..-1] # status code at last 3 characters of response
@@ -30,9 +28,10 @@ class MockProcessor
     end
   end
 
-  def self.save_to_file(string_to_store)
-    # TODO: maybe add flag parameter(s) to help with formatting - like HEAD_NODE
-    @output_file.puts("#{string_to_store}")
+  def self.save_to_file(json_string)
+    output_file = File.new('processed_output.json', 'w')
+    output_file.puts("#{json_string}")
+    output_file.close
   end
 
   def self.request_all_ids(endpoint)
@@ -51,26 +50,47 @@ class MockProcessor
     return all_ids_array
   end
 
-  def self.request_all_organs(id_list)
-    responses = []
-    id_list.each do |id|
+  def self.request_all_organs(id_array)
+    responses_array = []
+    id_array.each do |id|
       organ_response = make_api_request(ORGANS_ENDPOINT + "/#{id}")
       instance_hash = JSON.parse(organ_response)
-      responses << instance_hash
+      responses_array << instance_hash
     end
-    return responses
+    return responses_array
   end
 
-  def self.sort_organs(list_of_organs)
-    # select organs without a parent
-    null_parent_organs = list_of_organs.select { |organ| organ['parent_id'].nil?}
-    puts null_parent_organs
+  def self.sort_organs(all_organs_array)
+    formatted_array = []
+
+    # sole organ parents (without children) are already flat
+    sole_parent_organs = all_organs_array.select { |organ| organ['type'] == 'sole' }
+    sole_parent_organs.sort_by! { |organ| organ['id'] }
+
+    sole_parent_organs.each do |organ_hash|
+      organ_hash.delete('parent_id')
+      organ_hash.delete('type')
+      formatted_array << organ_hash.flatten
+    end
+
+    save_to_file(formatted_array)
+
+    # select organs without a parent and have children organs
+    top_parent_organs = all_organs_array.select { |organ| organ['parent_id'].nil? &&  organ['type'] == 'parent' }
+    top_parent_organs.sort_by! { |organ| organ['id'] }
+
+    children_parents = all_organs_array.select { |organ| organ['parent_id']}
+
+    # pretty_json = JSON.pretty_generate(formatted_array.to_json).delete! '\\'
+    # puts pretty_json
+
+    # null_parent_organs = list_of_organs.select { |organ| organ['parent_id'].nil? }
+    # puts "null parents: #{null_parent_organs}"
+    # top_parent_organs.map! { |top_organ|  }
+
   end
 
-  list_of_ids = request_all_ids(ORGANS_ENDPOINT)
-  all_organs = request_all_organs(list_of_ids)
-  sort_organs(all_organs)
-  save_to_file(all_organs)
-
-  @output_file.close
+  all_organs_id_array = request_all_ids(ORGANS_ENDPOINT)
+  all_organs_array = request_all_organs(all_organs_id_array)
+  sort_organs(all_organs_array)
 end
