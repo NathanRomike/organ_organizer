@@ -55,15 +55,21 @@ class MockProcessor
     responses = []
     id_list.each do |id|
       organ_response = make_api_request(ORGANS_ENDPOINT + "/#{id}")
-      puts organ_response
-      responses << organ_response
+      instance_hash = JSON.parse(organ_response)
+      responses << instance_hash
     end
     return responses
   end
 
+  def self.sort_organs(list_of_organs)
+    # select organs without a parent
+    null_parent_organs = list_of_organs.select { |organ| organ['parent_id'].nil?}
+    puts null_parent_organs
+  end
+
   list_of_ids = request_all_ids(ORGANS_ENDPOINT)
   all_organs = request_all_organs(list_of_ids)
-  all_organs.find_all { |organ| organ['parent_id'].nil? }
+  sort_organs(all_organs)
   save_to_file(all_organs)
 
   @output_file.close
