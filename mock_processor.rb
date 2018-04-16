@@ -60,29 +60,26 @@ class MockProcessor
     return responses_array
   end
 
-  def self.sort_organs(all_organs_array)
+  def self.sort_organs(organs_array)
     formatted_array = []
 
     # sole organ parents (without children) are already flat
-    sole_parent_organs = all_organs_array.select { |organ| organ['type'] == 'sole' }
+    sole_parent_organs = organs_array.select { |organ| organ['type'] == 'sole' }
     sole_parent_organs.sort_by! { |organ| organ['id'] }
 
     sole_parent_organs.each do |organ_hash|
-      organ_hash.delete('parent_id')
-      organ_hash.delete('type')
-      formatted_array << organ_hash.values.to_json
+      # organ_hash.delete('parent_id')
+      # organ_hash.delete('type')
+      formatted_array << organ_hash
     end
 
     # select organs without a parent and have children organs
-    top_parent_organs = all_organs_array.select { |organ| organ['parent_id'].nil? &&  organ['type'] == 'parent' }
+    top_parent_organs = organs_array.select { |organ| organ['parent_id'].nil? &&  organ['type'] == 'parent' }
     top_parent_organs.sort_by! { |organ| organ['id'] }
 
-    children_parents = all_organs_array.select { |organ| organ['parent_id'] }
-
-    # null_parent_organs = list_of_organs.select { |organ| organ['parent_id'].nil? }
-    # puts "null parents: #{null_parent_organs}"
-    # top_parent_organs.map! { |top_organ|  }
-
+    children_parents = organs_array.select { |organ| organ['parent_id'] }
+    puts formatted_array
+    save_to_file(formatted_array)
   end
 
   organs_id_array = request_all_ids(ORGANS_ENDPOINT)
