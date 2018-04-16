@@ -7,7 +7,7 @@ class MockProcessor
   GET_METHOD = 'GET'
   SILENT_OUTPUT = '--silent'
   PAGE_PARAM = '?page='
-  API_KEY_HEADER = "-H 'x-api-key: hello'"
+  API_KEY_HEADER = "-H 'x-api-key: <API_KEY_HERE>'"
   WRITE_STATUS_CODE = '-w "%{http_code}"'
 
   ORGANS_ENDPOINT = 'orgs'
