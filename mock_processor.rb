@@ -50,11 +50,11 @@ class MockProcessor
     return all_ids_array
   end
 
-  def self.request_all_organs(id_array)
+  def self.request_all_by_id(id_array, endpoint)
     responses_array = []
     id_array.each do |id|
-      organ_response = make_api_request(ORGANS_ENDPOINT + "/#{id}")
-      instance_hash = JSON.parse(organ_response)
+      response = make_api_request(endpoint + "/#{id}")
+      instance_hash = JSON.parse(response)
       responses_array << instance_hash
     end
     return responses_array
@@ -70,19 +70,14 @@ class MockProcessor
     sole_parent_organs.each do |organ_hash|
       organ_hash.delete('parent_id')
       organ_hash.delete('type')
-      formatted_array << organ_hash.flatten
+      formatted_array << organ_hash.values.to_json
     end
-
-    save_to_file(formatted_array)
 
     # select organs without a parent and have children organs
     top_parent_organs = all_organs_array.select { |organ| organ['parent_id'].nil? &&  organ['type'] == 'parent' }
     top_parent_organs.sort_by! { |organ| organ['id'] }
 
-    children_parents = all_organs_array.select { |organ| organ['parent_id']}
-
-    # pretty_json = JSON.pretty_generate(formatted_array.to_json).delete! '\\'
-    # puts pretty_json
+    children_parents = all_organs_array.select { |organ| organ['parent_id'] }
 
     # null_parent_organs = list_of_organs.select { |organ| organ['parent_id'].nil? }
     # puts "null parents: #{null_parent_organs}"
@@ -90,7 +85,11 @@ class MockProcessor
 
   end
 
-  all_organs_id_array = request_all_ids(ORGANS_ENDPOINT)
-  all_organs_array = request_all_organs(all_organs_id_array)
-  sort_organs(all_organs_array)
+  organs_id_array = request_all_ids(ORGANS_ENDPOINT)
+  organs_array = request_all_by_id(organs_id_array, ORGANS_ENDPOINT)
+  sort_organs(organs_array)
+
+  accounts_id_array = request_all_ids(ACCOUNTS_ENDPOINT)
+  accounts_array = request_all_by_id(accounts_id_array, ACCOUNTS_ENDPOINT)
+  puts accounts_array
 end
