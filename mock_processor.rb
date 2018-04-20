@@ -63,22 +63,36 @@ class MockProcessor
   def self.sort_organs(organs_array)
     # sole organ parents (without children) are already flat
     formatted_array = organs_array.select { |organ| organ['type'] == 'sole' }
-    formatted_array.sort_by! { |organ| organ['id'] }
 
-    # select organs without a parent (these have children organs)
-    top_parent_organs = organs_array.select { |organ| organ['parent_id'].nil? &&  organ['type'] == 'parent' }
-    top_parent_organs.sort_by! { |organ| organ['id'] }
+    # select organs without a parent (these might have children organs)
+    grandparent_organs = organs_array.select { |organ| organ['parent_id'].nil? &&  organ['type'] == 'parent' }
 
     # select organs with a parent organ (these are children organs)
-    children_parents = organs_array.select { |organ| !organ['parent_id'].nil? && organ['type'] == 'parent' }
-    children_parents.sort_by! { |organ| organ['parent_id'] }
+    parents_with_children = organs_array.select { |organ| !organ['parent_id'].nil? && organ['type'] == 'parent' }
 
-    # loop through the children, add the parent as the key, and children as array
-    children_parents.each_with_index do |child_org, index|
-      parent_to_child = top_parent_organs.select { |organ| organ['id'] == child_org['parent_id']}
-      formatted_array << Array.new([parent_to_child, child_org])
+    # loop through the child organs with children
+    parents_with_children.each do |organ|
+      # create an array of any children for this organ, merge this new array of 'children' into this organ's node
+      organ.merge!({'children' => parents_with_children.select { |child| child['parent_id'] == organ['id']}})
     end
-    return JSON[formatted_array]
+
+    # combine sole organs with processed parents
+    formatted_array += parents_with_children
+
+    # loop through grandparent organs and add any children
+    grandparent_organs.each do |parent|
+      parent.merge!({'children' => parents_with_children.select { |child| child['parent_id'] == parent['id']}})
+    end
+
+    # combine sole + parent organs with grandparent organs
+    formatted_array += grandparent_organs
+
+    # sort results by id
+    formatted_array.sort_by! { |organ| organ['id'] }
+
+    puts formatted_array
+
+    return JSON[{'organs' => formatted_array}]
   end
 
   organs_id_array = request_all_ids(ORGANS_ENDPOINT)
@@ -87,8 +101,9 @@ class MockProcessor
   # TODO: Add children node to parent organs
   save_to_file(sort_organs(organs_array))
 
-  accounts_id_array = request_all_ids(ACCOUNTS_ENDPOINT)
-  accounts_array = request_all_by_id(accounts_id_array, ACCOUNTS_ENDPOINT)
+  # accounts_id_array = request_all_ids(ACCOUNTS_ENDPOINT)
+  # accounts_array = request_all_by_id(accounts_id_array, ACCOUNTS_ENDPOINT)
+  #
   # TODO: Add each organ's account to an 'account' node
   @output_file.close
 end
