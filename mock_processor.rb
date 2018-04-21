@@ -69,9 +69,25 @@ class MockProcessor
     return organs_array
   end
 
+  def self.calculate_organ_revenue(organs_with_accounts)
+    organs_with_accounts.each do |organ|
+      total_revenue = 0
+      organ['accounts'].each do |account|
+        total_revenue += account['revenue']
+      end
+      organ.merge!({'organ_revenue' => total_revenue})
+
+      # TODO: add the support score after children have been flattened
+      # support_score = (total_revenue/50000) + 1
+      # organ.merge!({'support_score' => support_score})
+    end
+    return organs_with_accounts
+  end
+
   def self.sort_organs(organs_array)
     # sole organ parents (without children) are already flat
     formatted_array = organs_array.select { |organ| organ['type'] == 'sole' }
+    # TODO: add null to the 'children' array when no children or remove 'children' node
 
     # select organs without a parent (these might have children organs)
     grandparent_organs = organs_array.select { |organ| organ['parent_id'].nil? &&  organ['type'] == 'parent' }
@@ -93,7 +109,7 @@ class MockProcessor
     end
 
     formatted_array += grandparent_organs  # combine sole + parent organs with grandparent organs
-    formatted_array.sort_by! { |organ| organ['id'] } # sort results by id
+    formatted_array.sort_by! { |organ| organ['id'] }
     return formatted_array
   end
 
@@ -104,7 +120,9 @@ class MockProcessor
   accounts_array = request_all_by_id(accounts_id_array, ACCOUNTS_ENDPOINT)
 
   organs_with_accounts = add_accounts_to_organs(accounts_array, organs_array)
-  sorted_organs = sort_organs(organs_with_accounts)
+  organs_with_revenue = calculate_organ_revenue(organs_with_accounts)
+
+  sorted_organs = sort_organs(organs_with_revenue)
 
   save_to_file(sorted_organs)
 
