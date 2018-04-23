@@ -2,6 +2,7 @@ require 'json'
 
 class MockProcessor
   # Constants
+  API_ERROR_MESSAGE = 'Secure connection to API failed - please ensure the API key is correct.'
   OUTPUT_FILE_NAME = 'processed_output.json'
 
   # API values
@@ -35,21 +36,24 @@ class MockProcessor
 
   def self.make_api_request(path, params = '')
     response = `curl -X #{GET_METHOD} #{API_URL}#{path}#{params} #{API_KEY_HEADER} #{SILENT_OUTPUT} #{WRITE_STATUS_CODE}`
-    response_status_code = response[-3..-1] # status code at last 3 characters of response
+    response_status_code = response[-3..-1] # status code is at last 3 characters of response
     case response_status_code
     when '200' # OK!
       return response[0...-3] # response minus status code
-    when '401' # request was unavailable - retry immediately
-      make_api_request(path, params)
+    when '401' # unauthorized - API key might be wrong
+      abort(API_ERROR_MESSAGE)
     when '403' # rate limit reached - wait 30 seconds before retry
       sleep(30)
+      make_api_request(path, params)
+    when '503' # request was unavailable - retry immediately
       make_api_request(path, params)
     else
       while @retry_counter <= 10 # retry immediately 10 times for all other error codes
         @retry_counter += 1
         make_api_request(path, params)
       end
-      abort("Connection to data api failed with response code #{response_status_code}. Please try again!")
+      error_message = JSON.parse(response[0...-3])['message']
+      abort("Connection to data api failed with: '#{error_message}' and response code #{response_status_code}. Please try again!")
     end
   end
 
